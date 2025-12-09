@@ -1,4 +1,4 @@
-name: 🏗️ Build Android APK with Buildozer
+name: 🏗️ Build Android APK
 
 on:
   push:
@@ -7,268 +7,143 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
+env:
+  BUILDOZER_ANDROID_ACCEPT_LICENSES: yes
+  P4A_RELEASE_KEYSTORE_PASSWD: dummy
+  P4A_RELEASE_KEYALIAS_PASSWD: dummy
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     
-    env:
-      # تنظیمات حیاتی برای Buildozer
-      BUILDOZER_ANDROID_ACCEPT_LICENSES: yes
-      P4A_RELEASE_KEYSTORE_PASSWD: dummy_password
-      P4A_RELEASE_KEYALIAS_PASSWD: dummy_password
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      NDK_VERSION: 25b
-      
     steps:
-    # مرحله 1: دریافت کد
+    # Step 1: Checkout code
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
-    # مرحله 2: تنظیم پایتون
+    # Step 2: Setup Python with caching
     - name: 🐍 Setup Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    # مرحله 3: نصب وابستگی‌های سیستم
+    # Step 3: Install system dependencies
     - name: 📦 Install system dependencies
       run: |
         sudo apt-get update -y
         sudo apt-get install -y \
           git wget curl unzip zip \
           openjdk-17-jdk \
-          python3-pip python3-venv python3-dev \
+          python3-pip python3-venv \
           autoconf libtool pkg-config \
-          zlib1g-dev libncurses5-dev libncursesw5-dev \
-          libtinfo5 cmake ninja-build \
-          libffi-dev libssl-dev sqlite3 \
-          libjpeg-dev libfreetype6-dev \
-          libgstreamer1.0-dev \
-          g++-multilib
+          zlib1g-dev libncurses5-dev \
+          libncursesw5-dev cmake \
+          libffi-dev libssl-dev
 
-    # مرحله 4: نصب Buildozer و Cython
-    - name: 🔧 Install Buildozer and dependencies
+    # Step 4: Install Python packages
+    - name: 🔧 Install Python packages
       run: |
-        python -m pip install --upgrade pip wheel setuptools
-        pip install --upgrade \
-          buildozer==1.5.0 \
-          cython==0.29.36 \
-          virtualenv \
-          platformdirs
+        pip install --upgrade pip wheel setuptools
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          pip install buildozer cython
+        fi
 
-    # مرحله 5: تنظیم Android SDK و پذیرش مجوزها
-    - name: 🤖 Setup Android SDK and accept licenses
+    # Step 5: Setup Android SDK licenses
+    - name: ✅ Setup Android licenses
       run: |
-        # ایجاد پوشه‌های لازم
-        mkdir -p ~/.android
         mkdir -p ~/.android/licenses
-        
-        # ایجاد فایل مجوزها
-        cat > ~/.android/licenses/android-sdk-license << EOF
-        8933bad161af4178b1185d1a37fbf41ea5269c55
-        d56f5187479451e5792070366a5e903d62325516
-        84831b94d134096996d9c67be85a9ac578393a57  
-        601085b94cd77f0b54ff86406957099ebe79c4d6
-        24333f8a63b6825ea9c5514f83c2829b004d1fee
-        EOF
+        echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license
+        echo "d56f5187479451e5792070366a5e903d62325516" >> ~/.android/licenses/android-sdk-license
+        echo "84831b94d134096996d9c67be85a9ac578393a57" >> ~/.android/licenses/android-sdk-license
 
-        echo "Android licenses accepted"
-
-    # مرحله 6: دانلود Android SDK و NDK
-    - name: 📥 Download Android SDK and NDK
-      run: |
-        # دانلود command line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        unzip -q cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        rm cmdline-tools.zip
-        
-        # اضافه کردن به PATH
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-        
-        # نصب platform tools و build tools
-        yes | sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-33"
-        yes | sdkmanager --sdk_root=$ANDROID_HOME "build-tools;34.0.0"
-        
-        # دانلود NDK
-        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
-        unzip -q ndk.zip -d $ANDROID_HOME
-        mv $ANDROID_HOME/android-ndk-r25b $ANDROID_HOME/ndk/$NDK_VERSION
-        rm ndk.zip
-        
-        echo "Android SDK and NDK installed successfully"
-
-    # مرحله 7: پاکسازی کش‌های قبلی
+    # Step 6: Clean previous builds
     - name: 🧹 Clean previous builds
       run: |
-        rm -rf .buildozer bin __pycache__ *.pyc
-        echo "Previous builds cleaned"
+        rm -rf .buildozer bin __pycache__ *.pyc *.log
+        echo "Cleanup completed"
 
-    # مرحله 8: بررسی فایل‌های ضروری
-    - name: 🔍 Check essential files
+    # Step 7: Create required directories
+    - name: 📁 Create required directories
       run: |
-        echo "Checking project structure..."
-        
-        # بررسی فایل‌های ضروری
-        REQUIRED_FILES=("main.py" "buildozer.spec")
-        for file in "${REQUIRED_FILES[@]}"; do
-          if [ ! -f "$file" ]; then
-            echo "❌ Error: $file not found!"
-            exit 1
-          else
-            echo "✅ $file exists"
-          fi
-        done
-        
-        # بررسی پوشه‌های ضروری
-        REQUIRED_DIRS=("data" "fonts")
-        for dir in "${REQUIRED_DIRS[@]}"; do
-          if [ ! -d "$dir" ]; then
-            echo "⚠️ Warning: $dir directory not found, creating..."
-            mkdir -p "$dir"
-          fi
-        done
-        
-        echo "Project structure is ready"
+        mkdir -p data fonts bin
+        touch data/icon.png 2>/dev/null || true
+        touch data/splash.png 2>/dev/null || true
+        touch fonts/farsi.ttf 2>/dev/null || true
 
-    # مرحله 9: ساخت APK با Buildozer
+    # Step 8: Build APK with Buildozer
     - name: 🏗️ Build APK with Buildozer
       run: |
         echo "🚀 Starting Buildozer build process..."
         
-        # ایجاد لاگ فایل
-        LOG_FILE="build.log"
+        # Clean and update
+        buildozer android clean
+        buildozer android update
         
-        # اجرای Buildozer با لاگ کامل
-        set -o pipefail
-        buildozer -v \
-          android clean \
-          android update \
-          android debug 2>&1 | tee $LOG_FILE
+        # Build with detailed logging
+        buildozer -v android debug 2>&1 | tee build.log
         
-        BUILD_STATUS=$?
-        
-        if [ $BUILD_STATUS -eq 0 ]; then
-          echo "✅ Buildozer completed successfully"
+        # Check build status
+        if [ $? -eq 0 ]; then
+          echo "✅ Build completed successfully"
         else
-          echo "❌ Buildozer failed with status: $BUILD_STATUS"
-          echo "=== Build Log Errors ==="
-          grep -i "error\|fail\|exception" $LOG_FILE | head -20
-          echo "=== Last 50 lines ==="
-          tail -50 $LOG_FILE
+          echo "❌ Build failed"
+          echo "=== Build log errors ==="
+          grep -i "error\|fail\|exception" build.log | head -20
           exit 1
         fi
 
-    # مرحله 10: بررسی فایل APK تولید شده
-    - name: 📊 Verify APK file
+    # Step 9: Verify APK file
+    - name: 🔍 Verify APK file
       run: |
-        echo "🔍 Verifying APK file..."
+        APK_FILES=$(find bin -name "*.apk" -type f 2>/dev/null)
         
-        APK_FILE=$(find bin -name "*.apk" -type f | head -1)
-        
-        if [ -z "$APK_FILE" ]; then
-          echo "❌ No APK file found in bin directory!"
+        if [ -n "$APK_FILES" ]; then
+          APK_FILE=$(echo "$APK_FILES" | head -1)
+          echo "✅ APK found: $APK_FILE"
+          echo "📏 Size: $(du -h "$APK_FILE" | cut -f1)"
+          echo "📁 All APK files:"
+          ls -la bin/*.apk 2>/dev/null || echo "No APK files in bin directory"
+        else
+          echo "❌ No APK file found!"
+          echo "Contents of bin directory:"
           ls -la bin/ 2>/dev/null || echo "bin directory doesn't exist"
           exit 1
         fi
-        
-        echo "✅ APK found: $APK_FILE"
-        echo "📏 Size: $(du -h "$APK_FILE" | cut -f1)"
-        echo "📅 Modified: $(date -r "$APK_FILE")"
-        
-        # بررسی امضا (اختیاری)
-        if command -v apksigner &> /dev/null; then
-          apksigner verify --verbose "$APK_FILE" && echo "✅ APK signature verified"
-        fi
 
-    # مرحله 11: آپلود APK به عنوان Artifact
-    - name: 📤 Upload APK as artifact
+    # Step 10: Upload APK artifact
+    - name: 📤 Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: grade-predictor-apk
         path: bin/*.apk
         if-no-files-found: error
         retention-days: 30
-        overwrite: true
 
-    # مرحله 12: آپلود لاگ ساخت
-    - name: 📝 Upload build log
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs
-        path: |
-          build.log
-          .buildozer/**/*.log
-        retention-days: 7
-        if-no-files-found: ignore
-
-    # مرحله 13: ایجاد Release در GitHub (فقط در main/master)
+    # Step 11: Create GitHub Release
     - name: 🏷️ Create GitHub Release
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ github.run_number }}
-        name: Release v${{ github.run_number }} - ${{ github.event.head_commit.message }}
+        name: Release v${{ github.run_number }}
         body: |
-          ### 🚀 Grade Predictor APK
+          APK ساخته شده برای برنامه Grade Predictor
           
-          **ساخت موفقیت‌آمیز APK اندروید**
+          **مشخصات:**
+          - شماره ساخت: ${{ github.run_number }}
+          - کامیت: ${{ github.sha }}
+          - تاریخ: $(date +'%Y-%m-%d %H:%M:%S')
           
-          - **شماره ساخت:** ${{ github.run_number }}
-          - **کامیت:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-          - **تاریخ ساخت:** $(date +'%Y-%m-%d %H:%M:%S')
-          - **شاخه:** ${{ github.ref_name }}
-          
-          ### 📱 نصب
+          **نحوه نصب:**
           1. فایل APK را دانلود کنید
-          2. در گوشی اندروید، به Settings → Security بروید
-          3. گزینه "Unknown Sources" را فعال کنید
-          4. فایل APK را نصب کنید
-          
-          ### 🔧 اطلاعات فنی
-          - Buildozer: 1.5.0
-          - Python: 3.10
-          - Android SDK: 33
-          - Android NDK: 25b
-          - Architecture: arm64-v8a
-          
-          ### 📄 تغییرات
-          ${{ github.event.head_commit.message }}
-          
+          2. در تنظیمات گوشی، گزینه نصب از منابع ناشناس را فعال کنید
+          3. فایل APK را نصب کنید
         files: bin/*.apk
         draft: false
         prerelease: false
-        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # مرحله 14: اطلاع‌رسانی موفقیت
-    - name: 🔔 Notify success
-      if: success()
-      run: |
-        echo "🎉 Build completed successfully!"
-        echo "📦 APK is ready for download"
-        echo "👉 Check the 'Artifacts' section or 'Releases' tab"
-
-    # مرحله 15: اطلاع‌رسانی شکست
-    - name: 🚨 Notify failure
-      if: failure()
-      run: |
-        echo "❌ Build failed!"
-        echo "Please check the build logs for details"
-        echo "Common issues:"
-        echo "1. Missing requirements in buildozer.spec"
-        echo "2. Android SDK/NDK issues"
-        echo "3. Missing files (main.py, fonts, etc.)"
