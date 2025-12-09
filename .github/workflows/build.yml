@@ -7,13 +7,11 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-# --- تنظیم مجوزهای کلی در سطح Workflow ---
-# این بخش بالاترین سطح دسترسی ممکن (write) را برای تمام عملیات‌های مخزن (contents, packages, issues, etc.) فراهم می‌کند.
+# --- تنظیم بالاترین سطح مجوز برای GITHUB_TOKEN ---
 permissions:
-  contents: write
+  contents: write   # برای آپلود Artifacts و ایجاد Release
   packages: write
   pull-requests: write
-  # اگرچه برای بیلد ضروری نیستند، اما سطح دسترسی را کامل می‌کنند:
   statuses: write
   checks: write
   id-token: write
@@ -23,8 +21,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      # تنظیم متغیرهای محیطی برای پایداری بیشتر
       PYTHON_FOR_ANDROID_THREAD_TIMEOUT: 600
       PYTHON_FOR_ANDROID_IGNORE_FATAL_ERRORS: 1
+      # تعریف متغیر محیطی ANDROID_HOME برای دسترسی مستقیم به SDK توسط ما
+      ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
       
     steps:
     - name: 📝 Checkout code
@@ -36,26 +37,33 @@ jobs:
         python-version: '3.10'
 
     - name: 🛠️ Install dependencies for Buildozer & Cython
-      # ابزارهای zip/unzip/unrar برای باز کردن پکیج‌های buildozer
+      # نصب پکیج‌های سیستمی و Cython
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake
+        sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake wget
         pip install cython buildozer
 
-    - name: 🔑 Accept Android SDK Licenses and Prepare Structure
-      # ایجاد ساختار دایرکتوری SDK مورد نیاز و پذیرش مجوزها برای SDK و ابزارهای خط فرمان
+    - name: 🔑 Install & Prepare Android SDK and Licenses
+      # این گام مشکل 'sdkmanager not found' و 'license not accepted' را حل می‌کند.
       run: |
-        SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $SDK_ROOT/licenses
-        # 1. نصب ابزارهای خط فرمان (cmdline-tools)
-        $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "cmdline-tools;latest"
+        SDK_ROOT=$ANDROID_HOME
         
-        # 2. ایجاد ساختار فولدر قدیمی و Symlink
-        mkdir -p $SDK_ROOT/tools/bin  # ایجاد مسیر قدیمی مورد انتظار توسط P4A
-        # پیوند دادن sdkmanager واقعی به مسیر مورد انتظار Buildozer
+        # 1. نصب Command Line Tools (SDK Manager) به صورت دستی
+        # دانلود ابزارها به عنوان یک فایل zip
+        mkdir -p $SDK_ROOT/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-8592035_latest.zip -O $SDK_ROOT/cmdline-tools/tools.zip
+        unzip -q $SDK_ROOT/cmdline-tools/tools.zip -d $SDK_ROOT/cmdline-tools/
+        
+        # 2. انتقال ابزارها به ساختار فولدر 'latest' مورد انتظار جدید
+        mv $SDK_ROOT/cmdline-tools/cmdline-tools $SDK_ROOT/cmdline-tools/latest
+        
+        # 3. ایجاد Symlink برای فریب Buildozer در مسیر قدیمی
+        mkdir -p $SDK_ROOT/tools/bin
         ln -s $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $SDK_ROOT/tools/bin/sdkmanager
         
-        # 3. پذیرش مجوزها (مانند مرحله قبل)
+        # 4. پذیرش مجوزها برای امکان دانلود با sdkmanager
+        mkdir -p $SDK_ROOT/licenses
+        # لیست کامل هش مجوزهای پذیرفته شده (Android SDK, Build-tools, Preview)
         echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451e5792070366a5e903d62325516" > $SDK_ROOT/licenses/android-sdk-license
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $SDK_ROOT/licenses/android-sdk-preview-license
 
@@ -63,6 +71,7 @@ jobs:
       run: chmod +x buildozer.spec
 
     - name: 🔨 Run Buildozer (Debug Build)
+      # Buildozer حالا تمام ابزارهای مورد نیاز را در مسیرهای صحیح پیدا خواهد کرد.
       run: buildozer android debug
       
     - name: ⬆️ Upload APK artifact
@@ -81,5 +90,4 @@ jobs:
         draft: false
         prerelease: false
       env:
-        # GITHUB_TOKEN پیش‌فرض حالا مجوزهای write را دارد
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
