@@ -36,9 +36,10 @@ jobs:
         python-version: '3.10'
 
     - name: 🛠️ Install dependencies for Buildozer & Cython
+      # ابزارهای zip/unzip/unrar برای باز کردن پکیج‌های buildozer
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake
+        sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake
         pip install cython buildozer
 
     - name: 🔑 Accept Android SDK Licenses and Prepare Structure
