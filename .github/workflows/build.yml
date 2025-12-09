@@ -56,15 +56,12 @@ jobs:
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $BUILD_SDK_ROOT/licenses/android-sdk-preview-license
         
         # 4. نصب cmdline-tools و پکیج‌های حیاتی در مسیر Buildozer
-        # با استفاده از sdkmanager از پیش نصب شده در Runner
-        $RUNNER_SDK_MANAGER --sdk_root=$BUILD_SDK_ROOT "cmdline-tools;latest"
-        $RUNNER_SDK_MANAGER --sdk_root=$BUILD_SDK_ROOT "platform-tools" "build-tools;33.0.2"
+        # نصب cmdline-tools و Build-Tools 33.0.2 و platform-tools
+        $RUNNER_SDK_MANAGER --sdk_root=$BUILD_SDK_ROOT "cmdline-tools;latest" "platform-tools" "build-tools;33.0.2"
         
         # 5. ایجاد Symlink برای فریب Buildozer
-        # حالا که cmdline-tools در مسیر BUILD_SDK_ROOT/cmdline-tools/latest/bin وجود دارد، آن را به مسیر قدیمی tools/bin پیوند می‌دهیم.
         mkdir -p $BUILD_SDK_ROOT/tools/bin
         ln -s $BUILD_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $BUILD_SDK_ROOT/tools/bin/sdkmanager
-
     - name: ⚙️ Set execution permissions
       run: chmod +x buildozer.spec
 
