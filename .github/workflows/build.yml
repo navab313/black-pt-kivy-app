@@ -21,6 +21,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      # متغیر محیطی Buildozer/P4A برای تحمیل نسخه Build Tools (حل مشکل 36.1)
+      P4A_build_tools_version: '33.0.2'
       PYTHON_FOR_ANDROID_THREAD_TIMEOUT: 600
       PYTHON_FOR_ANDROID_IGNORE_FATAL_ERRORS: 1
       ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
@@ -40,17 +42,8 @@ jobs:
         sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake wget
         pip install cython buildozer
 
-    - name: ⚙️ Enforce buildozer.spec Fixes
-      # این گام تنظیمات حیاتی را در فایل spec اعمال می‌کند تا Buildozer از نسخه 33.0.2 استفاده کند.
-      run: |
-        # 1. اجبار Build-Tools 33.0.2 (برای حل مشکل مجوز 36.1)
-        if ! grep -q "android.build_tools" buildozer.spec; then
-          sed -i '/android.ndk/a android.build_tools = 33.0.2' buildozer.spec
-        else
-          sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/' buildozer.spec
-        fi
-
     - name: 🔑 Install & Prepare Android SDK and Licenses
+      # این گام تمام ابزارهای مورد نیاز را نصب می‌کند و مجوزها را می‌پذیرد.
       run: |
         BUILD_SDK_ROOT=$ANDROID_HOME
         RUNNER_SDK_MANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
@@ -62,9 +55,10 @@ jobs:
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $BUILD_SDK_ROOT/licenses/android-sdk-preview-license
         
         # 2. نصب Build-Tools 33.0.2 و platform-tools
+        # استفاده از Build-Tools 33.0.2 که توسط P4A_build_tools_version تحمیل شده است.
         $RUNNER_SDK_MANAGER --sdk_root=$BUILD_SDK_ROOT "cmdline-tools;latest" "platform-tools" "build-tools;33.0.2"
         
-        # 3. ایجاد Symlink برای فریب Buildozer
+        # 3. ایجاد Symlink برای فریب Buildozer در مسیر sdkmanager
         mkdir -p $BUILD_SDK_ROOT/tools/bin
         ln -s $BUILD_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $BUILD_SDK_ROOT/tools/bin/sdkmanager
 
