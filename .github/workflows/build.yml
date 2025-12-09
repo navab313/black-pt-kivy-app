@@ -43,12 +43,19 @@ jobs:
         pip install cython buildozer
 
     - name: 🔑 Accept Android SDK Licenses and Prepare Structure
+      # ایجاد ساختار دایرکتوری SDK مورد نیاز و پذیرش مجوزها برای SDK و ابزارهای خط فرمان
       run: |
         SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $SDK_ROOT/licenses
-        mkdir -p $SDK_ROOT/tools/bin  
+        # 1. نصب ابزارهای خط فرمان (cmdline-tools)
+        $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "cmdline-tools;latest"
         
-        # لیست کامل هش مجوزهای پذیرفته شده
+        # 2. ایجاد ساختار فولدر قدیمی و Symlink
+        mkdir -p $SDK_ROOT/tools/bin  # ایجاد مسیر قدیمی مورد انتظار توسط P4A
+        # پیوند دادن sdkmanager واقعی به مسیر مورد انتظار Buildozer
+        ln -s $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $SDK_ROOT/tools/bin/sdkmanager
+        
+        # 3. پذیرش مجوزها (مانند مرحله قبل)
         echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451e5792070366a5e903d62325516" > $SDK_ROOT/licenses/android-sdk-license
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $SDK_ROOT/licenses/android-sdk-preview-license
 
