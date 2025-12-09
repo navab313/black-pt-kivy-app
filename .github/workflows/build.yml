@@ -21,10 +21,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # تنظیم متغیرهای محیطی برای پایداری بیشتر
       PYTHON_FOR_ANDROID_THREAD_TIMEOUT: 600
       PYTHON_FOR_ANDROID_IGNORE_FATAL_ERRORS: 1
-      # تعریف متغیر محیطی ANDROID_HOME برای دسترسی مستقیم به SDK توسط ما
       ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
       
     steps:
@@ -37,7 +35,6 @@ jobs:
         python-version: '3.10'
 
     - name: 🛠️ Install dependencies for Buildozer & Cython
-      # نصب پکیج‌های سیستمی و Cython
       run: |
         sudo apt-get update
         sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake wget
@@ -49,9 +46,10 @@ jobs:
         SDK_ROOT=$ANDROID_HOME
         
         # 1. نصب Command Line Tools (SDK Manager) به صورت دستی
-        # دانلود ابزارها به عنوان یک فایل zip
+        # استفاده از لینک پایدار (بدون شماره بیلد) که همیشه به آخرین نسخه اشاره می‌کند
         mkdir -p $SDK_ROOT/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-8592035_latest.zip -O $SDK_ROOT/cmdline-tools/tools.zip
+        # لینک پایدار برای Command Line Tools:
+        wget https://dl.google.com/android/repository/commandlinetools-linux-latest.zip -O $SDK_ROOT/cmdline-tools/tools.zip
         unzip -q $SDK_ROOT/cmdline-tools/tools.zip -d $SDK_ROOT/cmdline-tools/
         
         # 2. انتقال ابزارها به ساختار فولدر 'latest' مورد انتظار جدید
@@ -61,9 +59,8 @@ jobs:
         mkdir -p $SDK_ROOT/tools/bin
         ln -s $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $SDK_ROOT/tools/bin/sdkmanager
         
-        # 4. پذیرش مجوزها برای امکان دانلود با sdkmanager
+        # 4. پذیرش مجوزها
         mkdir -p $SDK_ROOT/licenses
-        # لیست کامل هش مجوزهای پذیرفته شده (Android SDK, Build-tools, Preview)
         echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451e5792070366a5e903d62325516" > $SDK_ROOT/licenses/android-sdk-license
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $SDK_ROOT/licenses/android-sdk-preview-license
 
@@ -71,7 +68,6 @@ jobs:
       run: chmod +x buildozer.spec
 
     - name: 🔨 Run Buildozer (Debug Build)
-      # Buildozer حالا تمام ابزارهای مورد نیاز را در مسیرهای صحیح پیدا خواهد کرد.
       run: buildozer android debug
       
     - name: ⬆️ Upload APK artifact
