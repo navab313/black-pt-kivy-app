@@ -1,49 +1,127 @@
-name: Build APK
+name: 🏗️ Build Android APK (Manual P4A)
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install dependencies
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 📦 Install system dependencies
       run: |
-        sudo apt update
-        sudo apt install -y python3-pip python3-venv git zip unzip openjdk-17-jdk
-        pip install buildozer cython kivy
-    
-    - name: Create minimal files
+        sudo apt-get update -y
+        sudo apt-get install -y \
+          python3-pip python3-dev \
+          git wget curl unzip zip \
+          openjdk-17-jdk \
+          zlib1g-dev libffi-dev libssl-dev
+
+    - name: 🔧 Install Buildozer
       run: |
-        mkdir -p data fonts bin
+        pip install buildozer==1.5.0 cython==0.29.36 virtualenv
+
+    - name: 📥 Download python-for-android manually
+      run: |
+        echo "📥 Downloading python-for-android..."
+        
+        # پاکسازی
+        rm -rf .buildozer
+        
+        # دانلود python-for-android
+        wget -q https://github.com/kivy/python-for-android/archive/refs/tags/2023.10.06.tar.gz -O p4a.tar.gz
+        mkdir -p .buildozer/android/platform
+        tar -xzf p4a.tar.gz -C .buildozer/android/platform/
+        mv .buildozer/android/platform/python-for-android-2023.10.06 .buildozer/android/platform/python-for-android
+        rm p4a.tar.gz
+        
+        echo "✅ python-for-android downloaded"
+
+    - name: 📥 Download Android NDK manually
+      run: |
+        echo "📥 Downloading Android NDK..."
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
+        mkdir -p .buildozer/android/platform
+        unzip -q ndk.zip -d .buildozer/android/platform/
+        mv .buildozer/android/platform/android-ndk-r25b .buildozer/android/platform/android-ndk
+        rm ndk.zip
+        
+        echo "✅ NDK downloaded"
+
+    - name: 📝 Create buildozer.spec
+      run: |
         if [ ! -f "buildozer.spec" ]; then
           cat > buildozer.spec << 'EOF'
         [app]
-        title=MyApp
-        package.name=myapp
-        version=1.0
-        main.py=main.py
-        requirements=python3,kivy
-        android.archs=arm64-v8a
-        android.api=33
-        android.ndk=25b
+        title = Grade Predictor
+        package.name = gradepredictor
+        package.domain = com.mycompany
+        version = 1.0.0
+        main.py = main.py
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,ttf
+        source.include_dirs = fonts,data
+        icon.filename = data/icon.png
+        presplash.filename = data/splash.png
+        requirements = python3,kivy
+        android.permissions = INTERNET
+        android.api = 33
+        android.minapi = 21
+        android.archs = arm64-v8a
+        android.ndk = 25b
+        android.sdk = 33
+        p4a.bootstrap = sdl2
+        orientation = portrait
+        log_level = 2
         EOF
                 fi
                 
-        echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" | base64 -d > data/icon.png
+        # ایجاد پوشه‌های ضروری
+        mkdir -p data fonts bin
+        echo "Placeholder" > data/icon.png
+        echo "Placeholder" > data/splash.png
         echo "Placeholder" > fonts/farsi.ttf
-    
-    - name: Build APK
+
+    - name: 🏗️ Build APK
       env:
         BUILDOZER_ANDROID_ACCEPT_LICENSES: yes
+        ANDROID_HOME: /usr/local/lib/android/sdk
+        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       run: |
-        buildozer android clean
-        buildozer android debug
-    
-    - name: Upload APK
+        echo "🚀 Building APK..."
+        
+        # تنظیم مسیرهای دستی
+        export ANDROID_NDK_HOME=$(pwd)/.buildozer/android/platform/android-ndk
+        export PATH=$PATH:$ANDROID_NDK_HOME
+        
+        # ساخت APK
+        buildozer -v android debug 2>&1 | tee build.log
+        
+        # بررسی APK
+        if ls bin/*.apk 1>/dev/null 2>&1; then
+          echo "✅ APK built!"
+          ls -la bin/*.apk
+        else
+          echo "❌ Build failed"
+          echo "=== Log tail ==="
+          tail -100 build.log
+          exit 1
+        fi
+
+    - name: 📤 Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app
+        name: app-apk
         path: bin/*.apk
+        if-no-files-found: error
