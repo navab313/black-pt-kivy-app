@@ -27,7 +27,7 @@ android.api = 33
 android.minapi = 21
 android.archs = armeabi-v7a, arm64-v8a
 android.ndk = 25b
-
+android.build_tools = 33.0.2
 # ساخت و خروجی
 fullscreen = 0
 orientation = portrait
