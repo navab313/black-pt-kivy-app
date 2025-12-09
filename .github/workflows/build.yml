@@ -13,45 +13,72 @@ jobs:
     - name: 📝 Checkout code
       uses: actions/checkout@v4
 
-    - name: 🐍 Setup Python
+    - name: 🐍 Setup Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 📦 Install Buildozer dependencies
+    - name: 📦 Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           git zip unzip \
           openjdk-17-jdk \
           python3-pip python3-venv \
-          libncurses5-dev \
-          zlib1g-dev
+          autoconf libtool pkg-config \
+          zlib1g-dev libncurses5-dev \
+          libncursesw5-dev cmake \
+          libffi-dev libssl-dev
 
-    - name: 🔧 Install Buildozer
+    - name: 🔧 Install Buildozer and Cython
       run: |
-        pip install --upgrade pip
-        pip install buildozer cython==0.29.36 virtualenv
+        python -m pip install --upgrade pip
+        pip install buildozer cython==0.29.36
 
-    - name: 📥 Accept Android Licenses
+    - name: ✅ Accept Android SDK licenses
       run: |
         mkdir -p ~/.android
-        touch ~/.android/repositories.cfg
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license
+        echo "d56f5187479451e5792070366a5e903d62325516" > ~/.android/licenses/android-sdk-license
+        echo "84831b94d134096996d9c67be85a9ac578393a57" > ~/.android/licenses/android-sdk-license
 
-    - name: 🏗️ Build APK
+    - name: 🏗️ Build APK with Buildozer
       run: |
         # تنظیم متغیرهای محیطی
         export BUILDOZER_ANDROID_ACCEPT_LICENSES=yes
         export P4A_RELEASE_KEYSTORE_PASSWD=dummy
         export P4A_RELEASE_KEYALIAS_PASSWD=dummy
         
-        # ساخت APK
+        # پاکسازی کش‌های قبلی
+        rm -rf .buildozer bin
+        
+        # ساخت APK با log level بالا
         buildozer -v android debug 2>&1 | tee build.log
+        
+        # بررسی موفقیت‌آمیز بودن build
+        if [ -f bin/*.apk ]; then
+          echo "✅ APK built successfully!"
+          ls -la bin/
+        else
+          echo "❌ APK build failed!"
+          tail -100 build.log
+          exit 1
+        fi
 
-    - name: 📤 Upload APK
+    - name: 📤 Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: grade-predictor-apk
         path: bin/*.apk
+        if-no-files-found: error
         retention-days: 7
+
+    - name: 🏷️ Create GitHub Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        files: bin/*.apk
+        draft: false
+        prerelease: false
