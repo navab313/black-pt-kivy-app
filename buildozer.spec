@@ -26,6 +26,7 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,ACCESS_FIN
 android.api = 33
 android.minapi = 21
 android.archs = armeabi-v7a, arm64-v8a
+android.ndk = 25b
 
 # ساخت و خروجی
 fullscreen = 0
