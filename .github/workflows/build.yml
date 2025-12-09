@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     # تنظیمات محیطی برای P4A/Buildozer
     env:
-      # افزایش زمان تایم‌اوت پایتون برای پکیج‌های سنگین (مانند cryptography)
+      # افزایش زمان تایم‌اوت پایتون برای پکیج‌های سنگین
       PYTHON_FOR_ANDROID_THREAD_TIMEOUT: 600
       # جلوگیری از درخواست‌های مکرر در صورت خطا
       PYTHON_FOR_ANDROID_IGNORE_FATAL_ERRORS: 1
@@ -29,34 +29,28 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 🛠️ Install dependencies for Buildozer
-      # نصب پکیج‌های سیستمی و Buildozer برای محیط CI
+    - name: 🛠️ Install dependencies for Buildozer & Cython
+      # Cython برای کامپایل Kivy و Pyjnius مورد نیاز است.
       run: |
         sudo apt-get update
-        # حذف libtinfo5 و استفاده از پکیج‌های سازگارتر
+        # نصب پکیج‌های سیستمی مورد نیاز
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake
-        pip install buildozer
+        # نصب Cython و Buildozer (Cython باید قبل از Buildozer نصب شود)
+        pip install cython buildozer
 
     - name: ⚙️ Set execution permissions
       run: chmod +x buildozer.spec
 
-    # --- تنظیمات سفارشی برای Buildozer ---
     - name: 🔨 Run Buildozer (Debug Build)
-      # اجرای Buildozer برای بیلد debug
-      # از آنجایی که در buildozer.spec از پچ محلی p4a.local_recipes استفاده شده است،
-      # این بیلد از نسخه اصلاح شده pyjnius شما استفاده خواهد کرد.
       run: buildozer android debug
       
-    # --- آپلود خروجی ---
     - name: ⬆️ Upload APK artifact
-      # استفاده از V4 برای جلوگیری از خطای منسوخ شدن
       uses: actions/upload-artifact@v4 
       with:
         name: ${{ github.event.repository.name }}-${{ github.run_number }}-apk
         path: bin/*.apk
         
     - name: 📦 Create GitHub Release
-      # این گام فایل بیلد شده را مستقیماً به صفحه Release در گیت‌هاب منتقل می‌کند.
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v1
       with:
