@@ -14,20 +14,25 @@ source.include_dirs = fonts,data,patches
 icon.filename = data/icon.png
 presplash.filename = data/splash.png
 
-# --- نیازمندی‌ها (مثال؛ بر اساس بسته‌های پروژه خودت تغییر بده) ---
-requirements = python3,kivy,pyjnius,cryptography,requests,flask,socketIO,selenium,ttkbootstrap
+# --- نیازمندی‌ها (فقط پکیج‌های سازگار و ضروری) ---
+# flask, selenium, socketIO و ttkbootstrap حذف شدند.
+requirements = python3,kivy,pyjnius,cryptography,requests
 
-# کتابخانه‌های p4a محلی (اگر recipes محلی داری، در پوشه patches قرار بگیرند)
-# دقت: اگر پوشه patches فقط یک فایل patch است (نه recipe)، توضیح بعدی را ببین.
+# کتابخانه‌های p4a محلی
+# اگر در پوشه patches فقط پچ برای pyjnius (مثلاً رفع مشکل long) دارید، این خط درست است.
 p4a.local_recipes = patches
 
 # مجوزها و تنظیمات اندروید
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,ACCESS_FINE_LOCATION
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE
+# مجوز ACCESS_FINE_LOCATION نیاز به توضیح دلیل در پلی‌استور دارد.
 android.api = 33
 android.minapi = 21
+# رفع اخطار قدیمی Buildozer:
 android.archs = armeabi-v7a, arm64-v8a
 android.ndk = 25b
-android.build_tools = 33.0.2
+# اجبار Build-Tools برای حل مشکل مجوز 36.1:
+android.build_tools = 33.0.2 
+
 # ساخت و خروجی
 fullscreen = 0
 orientation = portrait
@@ -38,10 +43,6 @@ bin_dir = ./bin
 # --- Buildozer / p4a settings ---
 log_level = 2
 warn_on_root = 1
-
-# اگر نیاز داری گزینه‌های اضافی p4a:
-# p4a.branch = stable
-# p4a.bootstrap = sdl2
 
 [buildozer]
 log_level = 2
