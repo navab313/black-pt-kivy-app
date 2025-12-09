@@ -1,4 +1,4 @@
-name: Build APK
+name: 🏗️ Build Android APK (Complete Solution)
 
 on:
   push:
@@ -7,61 +7,213 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Buildozer
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 📦 Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip python3-venv git
-        pip install buildozer
-    
-    - name: Create basic files
-      run: |
-        # Create buildozer.spec
-        cat > buildozer.spec << 'EOF'
-        [app]
-        title = Grade Predictor
-        package.name = gradepredictor
-        version = 1.0
-        main.py = main.py
-        requirements = python3,kivy
-        android.api = 33
-        android.minapi = 21
-        EOF
-                
-        # Create minimal directories
-        mkdir -p data fonts
+        sudo apt-get install -y \
+          python3-pip python3-dev python3-venv \
+          git zip unzip curl \
+          openjdk-17-jdk \
+          zlib1g-dev libffi-dev libssl-dev
         
-        # Create tiny placeholder files
-        echo "tiny" > data/icon.png
-        echo "tiny" > data/splash.png
-        echo "font" > fonts/farsi.ttf
-    
-    - name: Build APK
+        pip install --upgrade pip wheel setuptools
+        pip install buildozer==1.5.0 cython==0.29.36 kivy==2.3.0
+
+    - name: 📝 Create correct buildozer.spec
+      run: |
+        echo "Creating complete buildozer.spec..."
+        
+        cat > buildozer.spec << 'EOF'
+[app]
+
+# Application information
+title = Grade Predictor
+package.name = gradepredictor
+package.domain = com.mycompany
+version = 1.0.0
+main.py = main.py
+
+# Source configuration - THIS IS MANDATORY
+source.dir = .
+source.include_exts = py,png,jpg,jpeg,kv,ttf,ttc,otf
+source.include_dirs = fonts,data
+
+# Icons and splash
+icon.filename = data/icon.png
+presplash.filename = data/splash.png
+
+# Requirements
+requirements = python3,kivy,arabic-reshaper,python-bidi
+
+# Android configuration
+android.permissions = INTERNET
+android.api = 33
+android.minapi = 21
+android.arch = arm64-v8a
+android.ndk = 25b
+p4a.bootstrap = sdl2
+android.accept_sdk_license = True
+orientation = portrait
+fullscreen = 0
+
+# Build settings
+log_level = 2
+warn_on_root = 1
+
+[buildozer]
+log_level = 2
+EOF
+        
+        echo "✅ buildozer.spec created successfully"
+        echo "=== File content ==="
+        cat buildozer.spec
+
+    - name: 📁 Create project structure
+      run: |
+        echo "Creating project structure..."
+        
+        # Create necessary directories
+        mkdir -p data fonts bin
+        
+        # Create placeholder files if they don't exist
+        if [ ! -f "data/icon.png" ]; then
+          echo "Creating placeholder icon.png..."
+          # Smallest valid PNG (1x1 pixel)
+          echo -n -e '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\r\xb4\xa2\x7f\x00\x00\x00\x00IEND\xaeB`\x82' > data/icon.png
+        fi
+        
+        if [ ! -f "data/splash.png" ]; then
+          echo "Creating placeholder splash.png..."
+          # Same small PNG for splash
+          echo -n -e '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\r\xb4\xa2\x7f\x00\x00\x00\x00IEND\xaeB`\x82' > data/splash.png
+        fi
+        
+        if [ ! -f "fonts/farsi.ttf" ]; then
+          echo "Creating placeholder farsi.ttf..."
+          echo "This is a placeholder font file for Persian text." > fonts/farsi.ttf
+        fi
+        
+        # Verify main.py exists
+        if [ ! -f "main.py" ]; then
+          echo "❌ ERROR: main.py not found in repository!"
+          echo "Creating a minimal main.py for testing..."
+          cat > main.py << 'EOF'
+#!/usr/bin/env python3
+# Grade Predictor Application
+
+from kivy.app import App
+from kivy.uix.label import Label
+
+class GradePredictorApp(App):
+    def build(self):
+        return Label(text='Grade Predictor\nAPK Build Test\nSuccess!')
+
+if __name__ == '__main__':
+    GradePredictorApp().run()
+EOF
+          echo "⚠️ Created placeholder main.py"
+        fi
+        
+        echo "✅ Project structure ready"
+        echo "📁 Current files:"
+        ls -la
+
+    - name: 🏗️ Build APK
       env:
         BUILDOZER_ANDROID_ACCEPT_LICENSES: yes
       run: |
-        # Just run buildozer without clean
-        buildozer android debug 2>&1 | tee build.log
+        echo "🚀 Starting APK build process..."
         
-        # Check if APK was created
-        if [ -f bin/*.apk ]; then
-          echo "✅ APK created!"
+        # Clean previous builds
+        rm -rf .buildozer bin
+        
+        # Initialize Buildozer (downloads dependencies)
+        echo "=== Step 1: Initializing ==="
+        buildozer init 2>&1 | tee init.log
+        echo "Init completed"
+        
+        # Build APK
+        echo "=== Step 2: Building APK ==="
+        buildozer -v android debug 2>&1 | tee build.log
+        
+        # Check build status
+        BUILD_STATUS=$?
+        echo "Build exit code: $BUILD_STATUS"
+        
+        # Look for APK files
+        echo "=== Step 3: Finding APK ==="
+        
+        # Search in common locations
+        APK_FILES=$(find . -type f -name "*.apk" 2>/dev/null)
+        
+        if [ -n "$APK_FILES" ]; then
+          echo "✅ SUCCESS: APK files found!"
+          echo "📦 APK files:"
+          echo "$APK_FILES" | while read apk; do
+            echo "   - $apk ($(du -h "$apk" | cut -f1))"
+          done
+          
+          # Copy to bin directory
+          mkdir -p bin
+          FIRST_APK=$(echo "$APK_FILES" | head -1)
+          cp "$FIRST_APK" bin/app-debug.apk
+          echo "📁 Copied to: bin/app-debug.apk"
+          
+          # Show bin contents
+          echo "📁 Contents of bin directory:"
           ls -la bin/
         else
-          echo "❌ No APK found"
-          echo "Last 50 lines of log:"
+          echo "❌ ERROR: No APK files found!"
+          echo "=== Build log errors ==="
+          grep -i "error\|fail\|exception\|missing" build.log | head -20
+          echo "=== Last 50 lines of build log ==="
           tail -50 build.log
-          exit 0  # Don't fail, just report
+          exit 1
         fi
-    
-    - name: Upload APK
-      if: success()
+
+    - name: 📤 Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-apk
+        name: grade-predictor-apk
         path: bin/*.apk
+        if-no-files-found: error
+        retention-days: 30
+
+    - name: 📝 Upload build logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          init.log
+          build.log
+          .buildozer/android/platform/build.log 2>/dev/null
+        retention-days: 7
         if-no-files-found: ignore
+
+    - name: 🎉 Success message
+      if: success()
+      run: |
+        echo "========================================"
+        echo "🎉🎉🎉 BUILD SUCCESSFUL! 🎉🎉🎉"
+        echo "========================================"
+        echo ""
+        echo "📱 Your Android APK is ready!"
+        echo ""
+        echo "📥 Download from:"
+        echo "   • Artifacts → grade-predictor-apk"
+        echo ""
+        echo "✅ Build completed at: $(date)"
+        echo "🔗 Build #: ${{ github.run_number }}"
