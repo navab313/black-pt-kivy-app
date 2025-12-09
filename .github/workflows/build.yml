@@ -1,39 +1,53 @@
-name: Build Android APK
+name: Build Android APK/AAB
 
 on:
   push:
+    # اجرا هنگام Push به شاخه‌های اصلی
     branches: [ main, master ]
   pull_request:
+    # اجرا هنگام Pull Request به شاخه‌های اصلی
     branches: [ main, master ]
   workflow_dispatch:  # اجازه اجرای دستی
 
 jobs:
   build:
+    # استفاده از آخرین نسخه اوبونتو
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - name: 📝 Checkout code
+      # به‌روزرسانی به نسخه V4
+      uses: actions/checkout@v4 
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: 📦 Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    - name: Build with Buildozer
-      uses: ArtemSBulgakov/buildozer-action@v1
-      id: buildozer
-      with:
-        command: buildozer android debug
-        buildozer_version: stable
+    - name: 🛠️ Install dependencies for Buildozer
+      # نصب پکیج‌های سیستمی و Buildozer برای محیط CI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake
+        pip install buildozer
+        
+    - name: ⚙️ Set execution permissions
+      # اعطای دسترسی اجرایی به buildozer.spec (برخی از اکشن‌ها به این نیاز دارند)
+      run: chmod +x buildozer.spec
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v3
+    - name: 🏗️ Run Buildozer
+      # اجرای Buildozer برای بیلد debug
+      run: buildozer android debug
+      
+    - name: ⬆️ Upload APK artifact
+      # به‌روزرسانی به نسخه V4
+      uses: actions/upload-artifact@v4 
       with:
         name: basij-grade-apk
         path: bin/*.apk
         
-    - name: Create Release
+    - name: 📦 Create GitHub Release
+      # این گام فایل بیلد شده را مستقیماً به صفحه Release در گیت‌هاب منتقل می‌کند.
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v1
       with:
