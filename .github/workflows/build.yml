@@ -1,244 +1,49 @@
-name: 🏗️ Build Android APK
+name: Build APK
 
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
     
     steps:
-    # مرحله 1: دریافت کد
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    # مرحله 2: آماده‌سازی فایل‌های ضروری
-    - name: 📁 Prepare project files
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
       run: |
-        echo "📁 Preparing project structure..."
-        
-        # ایجاد پوشه‌های ضروری
-        mkdir -p data fonts
-        
-        # ایجاد فایل‌های نمونه اگر وجود ندارند
-        if [ ! -f "data/icon.png" ]; then
-          echo "⚠️ Creating placeholder icon.png"
-          convert -size 512x512 xc:#4CAF50 data/icon.png 2>/dev/null || 
-          echo "iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAABlBMVEX///8AAABVwtN+AAACU0lEQVR4nO3BMQEAAADCoPVPbQhfoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+BsO8QABgLgCZAAAAABJRU5ErkJggg==" | base64 -d > data/icon.png
-        fi
-        
-        if [ ! -f "data/splash.png" ]; then
-          echo "⚠️ Creating placeholder splash.png"
-          convert -size 1080x1920 xc:#2196F3 data/splash.png 2>/dev/null || 
-          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" | base64 -d > data/splash.png
-        fi
-        
-        if [ ! -f "fonts/farsi.ttf" ]; then
-          echo "⚠️ Creating placeholder farsi.ttf"
-          echo "Placeholder font" > fonts/farsi.ttf
-        fi
-        
-        # ایجاد buildozer.spec اگر وجود ندارد
+        sudo apt update
+        sudo apt install -y python3-pip python3-venv git zip unzip openjdk-17-jdk
+        pip install buildozer cython kivy
+    
+    - name: Create minimal files
+      run: |
+        mkdir -p data fonts bin
         if [ ! -f "buildozer.spec" ]; then
-          echo "📝 Creating buildozer.spec"
           cat > buildozer.spec << 'EOF'
         [app]
-        title = Grade Predictor
-        package.name = gradepredictor
-        package.domain = com.mycompany
-        version = 1.0.0
-        main.py = main.py
-        source.dir = .
-        source.include_exts = py,png,jpg,kv,ttf
-        source.include_dirs = fonts,data
-        icon.filename = data/icon.png
-        presplash.filename = data/splash.png
-        requirements = python3,kivy,arabic-reshaper,python-bidi
-        android.permissions = INTERNET
-        android.api = 33
-        android.minapi = 21
-        android.archs = arm64-v8a
-        android.ndk = 25b
-        p4a.bootstrap = sdl2
-        orientation = portrait
-        log_level = 2
+        title=MyApp
+        package.name=myapp
+        version=1.0
+        main.py=main.py
+        requirements=python3,kivy
+        android.archs=arm64-v8a
+        android.api=33
+        android.ndk=25b
         EOF
                 fi
                 
-        # نمایش ساختار
-        echo "✅ Project structure ready"
-        ls -la
-
-    # مرحله 3: نصب Buildozer و ساخت APK
-    - name: 🏗️ Build APK with Buildozer
+        echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" | base64 -d > data/icon.png
+        echo "Placeholder" > fonts/farsi.ttf
+    
+    - name: Build APK
       env:
         BUILDOZER_ANDROID_ACCEPT_LICENSES: yes
-        P4A_RELEASE_KEYSTORE_PASSWD: dummy
-        P4A_RELEASE_KEYALIAS_PASSWD: dummy
       run: |
-        echo "🚀 Installing Buildozer..."
-        
-        # نصب وابستگی‌های سیستم
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-pip \
-          python3-venv \
-          git \
-          zip \
-          unzip \
-          openjdk-17-jdk \
-          zlib1g-dev
-        
-        # نصب Buildozer
-        pip3 install --upgrade pip
-        pip3 install buildozer cython==0.29.36
-        
-        # پاکسازی
-        echo "🧹 Cleaning previous builds..."
-        rm -rf .buildozer bin
-        
-        # ساخت APK
-        echo "🏗️ Building APK..."
-        
-        # اجرای Buildozer مرحله به مرحله
-        echo "Step 1: Initializing..."
-        buildozer init 2>&1 | tee init.log || true
-        
-        echo "Step 2: Cleaning..."
-        buildozer android clean 2>&1 | tee clean.log
-        
-        echo "Step 3: Updating dependencies..."
-        buildozer android update 2>&1 | tee update.log
-        
-        echo "Step 4: Building APK..."
-        buildozer -v android debug 2>&1 | tee build.log
-        
-        # بررسی نتیجه
-        if [ $? -eq 0 ]; then
-          echo "✅ Build process completed"
-        else
-          echo "❌ Build process failed"
-          echo "=== Build log tail ==="
-          tail -100 build.log
-          exit 1
-        fi
-
-    # مرحله 4: یافتن و بررسی APK
-    - name: 🔍 Find and verify APK
-      run: |
-        echo "🔍 Searching for APK files..."
-        
-        # جستجوی APK در کل پروژه
-        find . -name "*.apk" -type f 2>/dev/null | while read apk; do
-          echo "✅ Found APK: $apk"
-          echo "   Size: $(du -h "$apk" | cut -f1)"
-          echo "   Path: $(realpath "$apk")"
-          
-          # کپی به پوشه bin برای consistency
-          mkdir -p bin
-          cp "$apk" "bin/app-debug.apk"
-        done
-        
-        # بررسی پوشه bin
-        if [ -d "bin" ]; then
-          echo "📁 Contents of bin directory:"
-          ls -la bin/
-          
-          APK_COUNT=$(find bin -name "*.apk" -type f | wc -l)
-          if [ $APK_COUNT -eq 0 ]; then
-            echo "⚠️ No APK in bin directory, checking root..."
-            # جستجو مجدد
-            ROOT_APK=$(find . -maxdepth 1 -name "*.apk" -type f | head -1)
-            if [ -n "$ROOT_APK" ]; then
-              echo "✅ Found APK in root: $ROOT_APK"
-              mkdir -p bin
-              cp "$ROOT_APK" "bin/app-debug.apk"
-            else
-              echo "❌ No APK files found anywhere!"
-              exit 1
-            fi
-          fi
-        else
-          echo "❌ bin directory not created!"
-          exit 1
-        fi
-
-    # مرحله 5: آپلود APK
-    - name: 📤 Upload APK artifact
+        buildozer android clean
+        buildozer android debug
+    
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: grade-predictor-apk
-        path: |
-          bin/*.apk
-          *.apk
-        if-no-files-found: error
-        retention-days: 30
-
-    # مرحله 6: آپلود لاگ‌ها
-    - name: 📝 Upload build logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs
-        path: |
-          *.log
-          .buildozer/**/*.log
-        retention-days: 7
-        if-no-files-found: ignore
-
-    # مرحله 7: ایجاد Release
-    - name: 🏷️ Create GitHub Release
-      if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ github.run_number }}
-        name: Grade Predictor v${{ github.run_number }}
-        body: |
-          # Grade Predictor APK
-          
-          Built automatically with GitHub Actions
-          
-          ## Download Links
-          - **APK File:** Available in Artifacts above
-          
-          ## Build Info
-          - Build Number: ${{ github.run_number }}
-          - Commit: ${{ github.sha }}
-          - Date: $(date)
-          
-          ## Installation
-          1. Download the APK file
-          2. Enable "Unknown Sources" in Android settings
-          3. Install the APK
-          
-          ## Notes
-          This is an automated build. Report issues in the repository.
-        files: bin/*.apk
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # مرحله 8: اطلاع‌رسانی موفقیت
-    - name: 🎉 Success notification
-      if: success()
-      run: |
-        echo "========================================="
-        echo "🎉 BUILD SUCCESSFUL!"
-        echo "========================================="
-        echo ""
-        echo "📦 APK files are ready for download:"
-        echo "   • In 'Artifacts' section"
-        echo "   • In 'Releases' section"
-        echo ""
-        echo "📱 To install on Android:"
-        echo "   1. Download the APK"
-        echo "   2. Enable 'Unknown Sources' in Settings → Security"
-        echo "   3. Open the APK file and install"
-        echo ""
-        echo "✅ Build completed at: $(date)"
+        name: app
+        path: bin/*.apk
