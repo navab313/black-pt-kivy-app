@@ -1,48 +1,69 @@
 [app]
-# --- مشخصات برنامه ---
+
+# مشخصات برنامه
 title = Grade Predictor
 package.name = gradepredictor
 package.domain = ir.mycompany
 version = 1.0.0
 
-# --- مسیر کد ---
+# مسیر کد
 source.dir = .
-source.include_exts = py,png,jpg,jpeg,kv,atlas,ttf,ttc,otf,txt,json
-source.include_dirs = fonts,data,patches
+source.include_exts = py,png,jpg,jpeg,kv,ttf,ttc,otf
+source.include_dirs = fonts,data
 
-# آیکون و presplash (مسیر نسبت به ریشه پروژه)
+# آیکون و اسپلش
 icon.filename = data/icon.png
 presplash.filename = data/splash.png
 
-# --- نیازمندی‌ها (فقط پکیج‌های سازگار و ضروری) ---
-# flask, selenium, socketIO و ttkbootstrap حذف شدند.
-requirements = python3,kivy,pyjnius,cryptography,requests
+# --- نیازمندی‌های ضروری ---
+# کتابخانه‌های اصلی مورد نیاز
+requirements = 
+    python3==3.10.9,
+    kivy==2.3.0,
+    arabic-reshaper==3.0.0,
+    python-bidi==0.4.2,
+    pillow==10.1.0,
+    pyjnius==1.5.0
 
-# کتابخانه‌های p4a محلی
-# اگر در پوشه patches فقط پچ برای pyjnius (مثلاً رفع مشکل long) دارید، این خط درست است.
-p4a.local_recipes = patches
+# --- تنظیمات اندروید ---
+# مجوزها
+android.permissions = INTERNET,ACCESS_NETWORK_STATE
 
-# مجوزها و تنظیمات اندروید
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE
-# مجوز ACCESS_FINE_LOCATION نیاز به توضیح دلیل در پلی‌استور دارد.
+# نسخه API
 android.api = 33
 android.minapi = 21
-# رفع اخطار قدیمی Buildozer:
-android.archs = armeabi-v7a, arm64-v8a
+android.maxapi = 33
+
+# معماری
+android.archs = arm64-v8a  # فقط یک معماری برای کاهش خطا
+
+# NDK و SDK
 android.ndk = 25b
-# اجبار Build-Tools برای حل مشکل مجوز 36.1:
-android.build_tools = 33.0.2 
+android.ndk_path = 
+android.sdk_path = 
 
-# ساخت و خروجی
-fullscreen = 0
+# Build tools (نسخه پایدار)
+android.build_tools = 34.0.0
+
+# Bootstrap
+p4a.bootstrap = sdl2
+android.accept_sdk_license = True
+
+# جهت‌گیری
 orientation = portrait
+fullscreen = 0
 
-# پوشه خروجی APK
-bin_dir = ./bin
+# تنظیمات اضافی
+android.enable_androidx = True
+android.meta_data = 
+android.add_activity = 
 
-# --- Buildozer / p4a settings ---
+# --- تنظیمات Buildozer ---
 log_level = 2
 warn_on_root = 1
+
+# پوشه خروجی
+bin_dir = ./bin
 
 [buildozer]
 log_level = 2
