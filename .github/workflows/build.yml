@@ -7,13 +7,23 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# --- تنظیم مجوزهای کلی در سطح Workflow ---
+# این بخش بالاترین سطح دسترسی ممکن (write) را برای تمام عملیات‌های مخزن (contents, packages, issues, etc.) فراهم می‌کند.
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  # اگرچه برای بیلد ضروری نیستند، اما سطح دسترسی را کامل می‌کنند:
+  statuses: write
+  checks: write
+  id-token: write
+  security-events: write
+  
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # افزایش زمان تایم‌اوت پایتون برای پکیج‌های سنگین
       PYTHON_FOR_ANDROID_THREAD_TIMEOUT: 600
-      # جلوگیری از درخواست‌های مکرر در صورت خطا
       PYTHON_FOR_ANDROID_IGNORE_FATAL_ERRORS: 1
       
     steps:
@@ -31,12 +41,15 @@ jobs:
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake
         pip install cython buildozer
 
-    - name: 🔑 Accept Android SDK Licenses
-      # ایجاد ساختار پوشه لایسنس و یک فایل شامل هش مجوزهای پذیرفته شده 
-      # این کار سیستم را فریب می‌دهد که لایسنس‌ها قبول شده‌اند و بیلد ادامه می‌یابد.
+    - name: 🔑 Accept Android SDK Licenses and Prepare Structure
       run: |
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-        echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $SDK_ROOT/licenses
+        mkdir -p $SDK_ROOT/tools/bin  
+        
+        # لیست کامل هش مجوزهای پذیرفته شده
+        echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451e5792070366a5e903d62325516" > $SDK_ROOT/licenses/android-sdk-license
+        echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $SDK_ROOT/licenses/android-sdk-preview-license
 
     - name: ⚙️ Set execution permissions
       run: chmod +x buildozer.spec
@@ -60,4 +73,5 @@ jobs:
         draft: false
         prerelease: false
       env:
+        # GITHUB_TOKEN پیش‌فرض حالا مجوزهای write را دارد
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
