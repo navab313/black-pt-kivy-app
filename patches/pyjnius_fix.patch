@@ -1,0 +1,10 @@
+--- a/urllib/request.py
++++ b/urllib/request.py
+@@ -1845,6 +1845,7 @@
+             )
+         if fp:
+             try:
++                fp.close = lambda: None  # Prevents file closure by tempfile
+                 headers = self.info()
+                 # Handle HTTP codes 203, 300, 301, 302, 303, 307, 308
+                 if is_redirect_status(self.code):
