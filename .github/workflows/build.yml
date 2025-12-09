@@ -40,33 +40,45 @@ jobs:
         sudo apt-get install -y git zip unzip unrar openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncursesw5-dev cmake wget
         pip install cython buildozer
 
-    - name: 🔑 Install & Prepare Android SDK and Licenses (Final Solution)
+    - name: ⚙️ Enforce buildozer.spec Fixes
+      # این گام تنظیمات حیاتی را در فایل spec اعمال می‌کند، حتی اگر کاربر آن را فراموش کرده باشد.
+      run: |
+        # 1. تغییر android.arch به android.archs (رفع اخطار قدیمی)
+        sed -i 's/android.arch = /android.archs = /g' buildozer.spec
+        
+        # 2. اجبار استفاده از Build-Tools 33.0.2 (رفع مشکل مجوز 36.1)
+        # در بخش [app] یا [buildozer]، نسخه Build-Tools را تنظیم می‌کند.
+        if ! grep -q "android.build_tools" buildozer.spec; then
+          echo -e "\nandroid.build_tools = 33.0.2" >> buildozer.spec
+        else
+          sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/' buildozer.spec
+        fi
+
+    - name: 🔑 Install & Prepare Android SDK and Licenses
       # استفاده از sdkmanager موجود در Runner گیت‌هاب برای نصب پکیج‌ها در مسیر Buildozer
       run: |
-        # 1. تعریف مسیرهای مورد نیاز
         BUILD_SDK_ROOT=$ANDROID_HOME
         RUNNER_SDK_MANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
         
-        # 2. ایجاد ساختار پوشه اصلی Buildozer
+        # 1. ایجاد ساختار پوشه اصلی Buildozer
         mkdir -p $BUILD_SDK_ROOT
         
-        # 3. پذیرش مجوزها برای SDK
+        # 2. پذیرش مجوزها
         mkdir -p $BUILD_SDK_ROOT/licenses
         echo -e "84831b94d134096996d9c67be85a9ac578393a57\nd975a6d71686985d8866d9299443e06a928e4604\n5046298ac9856f1dbf31920d3b664747f87f0c13\n85539446e0ca86980e0f1a39626576204c4075b0\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451e5792070366a5e903d62325516" > $BUILD_SDK_ROOT/licenses/android-sdk-license
         echo -e "84831b94d134096996d9c67be85a9ac578393a57" > $BUILD_SDK_ROOT/licenses/android-sdk-preview-license
         
-        # 4. نصب cmdline-tools و پکیج‌های حیاتی در مسیر Buildozer
-        # نصب cmdline-tools و Build-Tools 33.0.2 و platform-tools
+        # 3. نصب Build-Tools 33.0.2 و platform-tools (حالا که نسخه در spec فیکس شده)
         $RUNNER_SDK_MANAGER --sdk_root=$BUILD_SDK_ROOT "cmdline-tools;latest" "platform-tools" "build-tools;33.0.2"
         
-        # 5. ایجاد Symlink برای فریب Buildozer
+        # 4. ایجاد Symlink برای فریب Buildozer
         mkdir -p $BUILD_SDK_ROOT/tools/bin
         ln -s $BUILD_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $BUILD_SDK_ROOT/tools/bin/sdkmanager
+
     - name: ⚙️ Set execution permissions
       run: chmod +x buildozer.spec
 
     - name: 🔨 Run Buildozer (Debug Build)
-      # Buildozer حالا تمام ابزارهای مورد نیاز را از قبل نصب شده می‌بیند.
       run: buildozer android debug
       
     - name: ⬆️ Upload APK artifact
